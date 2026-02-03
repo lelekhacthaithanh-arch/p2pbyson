@@ -3,134 +3,176 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Chat - PeerJS</title>
+    <title>P2P Pro Chat</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; background: #f4f4f9; }
-        #chat-box { width: 90%; max-width: 500px; height: 300px; border: 1px solid #ccc; overflow-y: auto; background: white; padding: 10px; margin-bottom: 10px; border-radius: 8px; }
-        .controls { display: flex; flex-direction: column; gap: 10px; width: 90%; max-width: 500px; }
-        .input-group { display: flex; gap: 5px; }
-        input[type="text"] { flex: 1; padding: 8px; }
-        button { cursor: pointer; padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 4px; }
-        .msg { margin-bottom: 8px; }
-        .my-id { font-weight: bold; color: #28a745; margin: 10px 0; }
+        :root {
+            --bg-color: #f0f2f5;
+            --my-msg: #0084ff;
+            --other-msg: #e4e6eb;
+        }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg-color); display: flex; justify-content: center; height: 100vh; margin: 0; }
+        .chat-container { width: 100%; max-width: 600px; display: flex; flex-direction: column; background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        
+        /* Header */
+        .header { padding: 15px; background: white; border-bottom: 1px solid #ddd; text-align: center; }
+        .my-id { font-size: 0.9em; color: #65676b; }
+        #my-peer-id { font-weight: bold; color: #28a745; cursor: pointer; }
+
+        /* Khung chat */
+        #chat-box { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; background: #fff; }
+        
+        /* Bong bóng chat */
+        .msg-row { display: flex; width: 100%; }
+        .msg-row.me { justify-content: flex-end; }
+        .msg-row.other { justify-content: flex-start; }
+        
+        .bubble { max-width: 70%; padding: 10px 15px; border-radius: 18px; font-size: 15px; line-height: 1.4; position: relative; word-wrap: break-word; }
+        .me .bubble { background: var(--my-msg); color: white; border-bottom-right-radius: 4px; }
+        .other .bubble { background: var(--other-msg); color: black; border-bottom-left-radius: 4px; }
+
+        .bubble img { max-width: 100%; border-radius: 10px; margin-top: 5px; cursor: pointer; }
+        .file-box { display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
+        .download-btn { font-size: 12px; text-decoration: underline; color: #004a8f; display: block; margin-top: 5px; }
+
+        /* Input */
+        .input-area { padding: 15px; border-top: 1px solid #ddd; display: flex; flex-direction: column; gap: 10px; }
+        .row { display: flex; gap: 10px; }
+        input[type="text"] { flex: 1; padding: 10px; border-radius: 20px; border: 1px solid #ddd; outline: none; }
+        button { padding: 8px 15px; border-radius: 20px; border: none; background: #0084ff; color: white; font-weight: bold; cursor: pointer; }
+        button:hover { background: #0073e6; }
+        #file-input { display: none; }
+        .label-file { padding: 8px 15px; background: #e4e6eb; border-radius: 20px; cursor: pointer; font-size: 14px; }
     </style>
 </head>
 <body>
 
-    <h2>Nhắn tin P2P</h2>
-    <div class="my-id">ID của bạn: <span id="my-peer-id">Đang khởi tạo...</span></div>
-
-    <div class="controls">
-        <div class="input-group">
-            <input type="text" id="remote-id" placeholder="Nhập ID bạn bè để kết nối">
+<div class="chat-container">
+    <div class="header">
+        <h3>P2P Chat Xịn</h3>
+        <div class="my-id">ID của bạn: <span id="my-peer-id" onclick="copyId()">Đang lấy...</span></div>
+        <div class="row" style="margin-top:10px;">
+            <input type="text" id="remote-id" placeholder="Nhập ID bạn bè...">
             <button onclick="connectToPeer()">Kết nối</button>
-        </div>
-        
-        <div id="chat-box"></div>
-
-        <div class="input-group">
-            <input type="text" id="message-input" placeholder="Nhập tin nhắn...">
-            <button onclick="sendMessage()">Gửi</button>
-        </div>
-
-        <div class="input-group">
-            <input type="file" id="file-input">
-            <button onclick="sendFile()">Gửi Tệp/Ảnh</button>
         </div>
     </div>
 
-    <script>
-        let peer = new Peer(); 
-        let conn;
+    <div id="chat-box"></div>
 
-        // Hiển thị ID của mình
-        peer.on('open', (id) => {
-            document.getElementById('my-peer-id').innerText = id;
-        });
+    <div class="input-area">
+        <div class="row">
+            <input type="text" id="message-input" placeholder="Nhập tin nhắn..." onkeypress="handleEnter(event)">
+            <button onclick="sendMessage()">Gửi</button>
+        </div>
+        <div class="row" style="justify-content: center;">
+            <label class="label-file" for="file-input">📎 Đính kèm tệp/ảnh</label>
+            <input type="file" id="file-input" onchange="sendFile()">
+        </div>
+    </div>
+</div>
 
-        // Lắng nghe khi có người khác kết nối tới mình
-        peer.on('connection', (connection) => {
-            conn = connection;
+<script>
+    let peer = new Peer();
+    let conn;
+
+    peer.on('open', id => document.getElementById('my-peer-id').innerText = id);
+
+    // Lắng nghe kết nối đến
+    peer.on('connection', c => {
+        conn = c;
+        setupChat();
+    });
+
+    function connectToPeer() {
+        const rId = document.getElementById('remote-id').value;
+        if (rId) {
+            conn = peer.connect(rId);
             setupChat();
-        });
-
-        // Hàm kết nối tới ID của bạn bè
-        function connectToPeer() {
-            const remoteId = document.getElementById('remote-id').value;
-            if (remoteId) {
-                conn = peer.connect(remoteId);
-                setupChat();
-            }
         }
+    }
 
-        function setupChat() {
-            conn.on('open', () => {
-                appendMessage("Hệ thống", "Đã kết nối!");
-                
-                conn.on('data', (data) => {
-                    if (data.file) {
-                        // Xử lý khi nhận tệp/ảnh
-                        const blob = new Blob([data.file], { type: data.type });
-                        const url = URL.createObjectURL(blob);
-                        if (data.type.startsWith('image/')) {
-                            appendImage("Bạn bè", url);
-                        } else {
-                            appendLink("Bạn bè", url, data.filename);
-                        }
-                    } else {
-                        // Xử lý khi nhận tin nhắn văn bản
-                        appendMessage("Bạn bè", data);
-                    }
-                });
+    function setupChat() {
+        conn.on('open', () => {
+            addStatus("Đã kết nối trực tiếp!");
+            conn.on('data', data => {
+                if (data.file) receiveFile(data);
+                else addBubble('other', data);
             });
-        }
+        });
+    }
 
-        function sendMessage() {
-            const msg = document.getElementById('message-input').value;
-            if (conn && conn.open) {
-                conn.send(msg);
-                appendMessage("Tôi", msg);
-                document.getElementById('message-input').value = "";
-            }
-        }
+    // Xử lý phím Enter
+    function handleEnter(e) {
+        if (e.key === 'Enter') sendMessage();
+    }
 
-        function sendFile() {
-            const fileInput = document.getElementById('file-input');
-            const file = fileInput.files[0];
-            if (file && conn && conn.open) {
-                conn.send({
-                    file: file,
-                    type: file.type,
-                    filename: file.name
-                });
-                
-                if (file.type.startsWith('image/')) {
-                    appendImage("Tôi", URL.createObjectURL(file));
-                } else {
-                    appendMessage("Tôi", `Đã gửi tệp: ${file.name}`);
-                }
-            }
+    function sendMessage() {
+        const input = document.getElementById('message-input');
+        const msg = input.value.trim();
+        if (msg && conn && conn.open) {
+            conn.send(msg);
+            addBubble('me', msg);
+            input.value = "";
         }
+    }
 
-        // Các hàm hỗ trợ hiển thị giao diện
-        function appendMessage(sender, text) {
-            const box = document.getElementById('chat-box');
-            box.innerHTML += `<div class="msg"><b>${sender}:</b> ${text}</div>`;
-            box.scrollTop = box.scrollHeight;
+    function sendFile() {
+        const fileInput = document.getElementById('file-input');
+        const file = fileInput.files[0];
+        if (file && conn && conn.open) {
+            conn.send({
+                file: file, 
+                type: file.type, 
+                name: file.name 
+            });
+            displayFile('me', file, file.name);
+            fileInput.value = ""; // reset
         }
+    }
 
-        function appendImage(sender, url) {
-            const box = document.getElementById('chat-box');
-            box.innerHTML += `<div class="msg"><b>${sender}:</b><br><img src="${url}" style="max-width:200px; border-radius:5px;"></div>`;
-            box.scrollTop = box.scrollHeight;
-        }
+    function receiveFile(data) {
+        const blob = new Blob([data.file], { type: data.type });
+        displayFile('other', blob, data.name);
+    }
 
-        function appendLink(sender, url, filename) {
-            const box = document.getElementById('chat-box');
-            box.innerHTML += `<div class="msg"><b>${sender}:</b> đã gửi tệp <a href="${url}" download="${filename}">${filename}</a></div>`;
-            box.scrollTop = box.scrollHeight;
+    // Hiển thị bong bóng
+    function addBubble(side, text) {
+        const box = document.getElementById('chat-box');
+        const div = document.createElement('div');
+        div.className = `msg-row ${side}`;
+        div.innerHTML = `<div class="bubble">${text}</div>`;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function displayFile(side, blob, fileName) {
+        const url = URL.createObjectURL(blob);
+        const box = document.getElementById('chat-box');
+        const div = document.createElement('div');
+        div.className = `msg-row ${side}`;
+        
+        let content = "";
+        if (blob.type && blob.type.startsWith('image/')) {
+            content = `<img src="${url}" title="Bấm để tải về"><br><a href="${url}" download="${fileName}" class="download-btn">Tải ảnh về</a>`;
+        } else {
+            content = `<div class="file-box">📄 ${fileName}</div><a href="${url}" download="${fileName}" class="download-btn">Tải tệp xuống</a>`;
         }
-    </script>
+        
+        div.innerHTML = `<div class="bubble">${content}</div>`;
+        box.appendChild(div);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    function addStatus(text) {
+        const box = document.getElementById('chat-box');
+        box.innerHTML += `<div style="text-align:center; font-size:12px; color:#888; margin:10px 0;">${text}</div>`;
+    }
+
+    function copyId() {
+        const id = document.getElementById('my-peer-id').innerText;
+        navigator.clipboard.writeText(id);
+        alert("Đã copy ID!");
+    }
+</script>
 </body>
 </html>
